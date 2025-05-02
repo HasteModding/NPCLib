@@ -361,7 +361,7 @@ public static class ILPatching
 			c.Emit(OpCodes.Ldsfld, typeof(NPC).GetField("Instances", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic));
 
 			// Also could break in the future. This gets the local variable (V_5) from the method.
-			c.Emit(OpCodes.Ldloc_S, 5);
+			c.Emit(OpCodes.Ldloc_S, (byte)5);
 
 			// Call method to check if line exists in any custom NPC text, returning a bool
 			c.EmitDelegate<Func<List<NPC>, string, bool>>((instances, str) => instances.Any(i => i.ContainsLine(str)));
