@@ -1,28 +1,13 @@
-﻿using HarmonyLib;
-using Landfall.Haste;
+﻿using Landfall.Haste;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 using System.Reflection;
 using UnityEngine;
 using Zorro.Core;
+using static Landfall.Haste.ReactionUI;
 
 namespace NPCLib;
-
-/*
- * -----------------------------------------
- * The software is provided "AS IS" under the MIT license.
- * Library is in Beta of some sorts.
- * Contribution is welcome.
- * -----------------------------------------
- * A simple dialog creater.
- * Can and will error.
- * Expect bugs. A lot of them.
- * Does not support reactions.
- * Does not support custom tags.
- * -----------------------------------------
-*/
 
 public enum Characters
 {
@@ -130,18 +115,27 @@ public struct InterCharacter
 				officalName = "Default";
 				break;
 		}
-		(InteractionCharacter = interactonCharacter).CharacterSprite = GetCharacterSprite();
+		InteractionCharacter = interactonCharacter;
+		InteractionCharacter.CharacterSprite = GetCharacterSprite();
+		InteractionCharacter.VocalBank = GetCharacterVocals(officalName);
 	}
 
-	internal Characters Character { get; set; } = default;
-	internal InteractionCharacter InteractionCharacter { get; set; } = null!;
-	internal string Name { get; set; } = string.Empty;
+	public Characters Character { get; set; } = default;
+	public InteractionCharacter InteractionCharacter { get; set; } = null!;
+	public string Name { get; set; } = string.Empty;
+	public InteractionVocalBank VocalBank { get; set; } = null!;
 	private string officalName { get; set; } = string.Empty;
 
 	private Sprite GetCharacterSprite()
 	{
 		return GameObject.Find($"GAME/Handlers/InteractionHandler/InteractionUI/Canvas/Characters/{officalName}/Image")
 			.GetComponent<UnityEngine.UI.Image>().sprite;
+	}
+
+	private InteractionVocalBank GetCharacterVocals(string officalName)
+	{
+		return Resources.FindObjectsOfTypeAll<InteractionVocalBank>()
+			.FirstOrDefault(v => v.name.Contains(officalName, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
 	}
 }
 
@@ -151,24 +145,19 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 
 	public DialogBuilder(NPC npc) => _npc = npc;
 
-	public void Add(Characters c, string l) => Add(new DialogEntry(c, l));
+	public void Add(Characters c, string l, ReactionType e = ReactionType.Expressionless) => Add(new DialogEntry(c, l, e));
 
 	public void Dispose() => _npc.CommitDialog(this);
+
+	public void ManualCommit(List<DialogEntry> manualEntries) => _npc.CommitDialog(manualEntries);
 }
 
 public class NPC
 {
-	internal static List<NPC> Instances = new();
-	internal Interaction Interaction = new();
-	internal List<InteractionLine> Lines = new();
-	private List<InterCharacter> _characters = new();
-	private InteractableCharacter _interactioncharacter = null!;
-
-	public NPC(Transform character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!)
+	public NPC(Transform character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!)
 	{
 		// Few of checks
 		if (character == null) throw new ArgumentNullException(nameof(character), "Character is null.");
-		if (markerPoint == null) throw new ArgumentNullException(nameof(markerPoint), "Marker point is null.");
 		if (string.IsNullOrEmpty(interactionName)) throw new ArgumentException("Interaction name is null or empty.", nameof(interactionName));
 		if (Instances.Any(i => i.Interaction.name == interactionName)) throw new ArgumentException($"Interaction name '{interactionName}' already exists.", nameof(interactionName));
 		if (rig == null) rig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>();
@@ -181,27 +170,43 @@ public class NPC
 		// Create a new InteractableCharacter component and add it to the Character gameobject.
 		// Additionally we turn it off straight away so the Start() method does not execute.
 		(_interactioncharacter = character.gameObject.AddComponent<InteractableCharacter>()).enabled = false;
-		_interactioncharacter.questionMarkTarget = character;
+		_interactioncharacter.questionMarkTarget = markerPoint;
 		_interactioncharacter.interactionCenter = character;
 		_interactioncharacter.unlockInteraction = Interaction;
 		_interactioncharacter.cameraRig = rig;
+		_interactioncharacter.onComplete = onComplete;
 
 		Instances.Add(this);
 	}
 
-	public NPC(GameObject character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!) :
-		this(character.transform, markerPoint, interactionName, rig)
+	public NPC(GameObject character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
+		this(character.transform, markerPoint, interactionName, rig, onComplete)
 	{ }
 
-	public NPC(Transform character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!) :
-		this(character, markerPoint.transform, interactionName, rig)
+	public NPC(Transform character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
+		this(character, markerPoint.transform, interactionName, rig, onComplete)
 	{ }
 
-	public NPC(GameObject character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!) :
-		this(character.transform, markerPoint.transform, interactionName, rig)
+	public NPC(GameObject character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
+		this(character.transform, markerPoint.transform, interactionName, rig, onComplete)
 	{ }
 
-	internal GameObject GameObject => _interactioncharacter.gameObject ?? null!;
+	public NPC(GameObject character, Vector3 markerOffset, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
+		this(character.transform, (GameObject)null!, interactionName, rig, onComplete)
+	{
+		GameObject markerPoint = new GameObject("MarkerPoint");
+		markerPoint.transform.SetParent(character.transform);
+		markerPoint.transform.localPosition = markerOffset;
+		_interactioncharacter.questionMarkTarget = markerPoint.transform;
+	}
+
+	public static List<NPC> Instances { get; set; } = new();
+	public GameObject GameObject { get => _interactioncharacter.gameObject ?? null!; }
+	public Interaction Interaction { get; set; } = new();
+	public List<InteractionLine> Lines { get; set; } = new();
+	public GameObject QuestionMarkObject { get => _interactioncharacter.questionMarkTarget.gameObject ?? null!; }
+	private List<InterCharacter> _characters { get; set; } = new();
+	private InteractableCharacter _interactioncharacter { get; set; } = null!;
 
 	internal void CommitDialog(List<DialogEntry> dialogs)
 	{
@@ -209,14 +214,16 @@ public class NPC
 		if (dialogs == null) throw new ArgumentException("No dialog was provided.");
 		UnityEngine.Debug.LogError("");
 
+		Lines.Clear();
+
 		// Loop through each dialog entry
 		foreach (DialogEntry dialog in dialogs)
 		{
 			// Check if the line is null or empty
 			if (string.IsNullOrEmpty(dialog.line))
 			{
-				Debug.LogError($"Line: '{dialog.line}' is null or empty. Skipping line.");
-				continue;
+				Debug.LogError($"Line: {dialog.line} is null or empty. Skipping line.");
+				return;
 			}
 
 			// If the dialog character is not valid somehow, skip the line
@@ -224,7 +231,7 @@ public class NPC
 			{
 				try { Debug.LogError($"Character: '{dialog.character.ToString()}' is invalid. Skipping line."); }
 				catch { Debug.LogError($"Character you've put in your dialog is invalid. Skipping line."); }
-				continue;
+				return;
 			}
 
 			// Get character by name
@@ -239,9 +246,7 @@ public class NPC
 
 				intactChar.DisplayName = new UnlocalizedString(character.Name);
 				intactChar.CharacterColor = new Color(0.3216f, 0.1137f, 0.2923f, 1);
-				intactChar.VocalBank = GameObject.Find("Hub_Characters/Captain/").GetComponent<InteractableCharacter>().character.VocalBank;
 				intactChar.TalkingSprite = GameObject.Find("Hub_Characters/Captain/").GetComponent<InteractableCharacter>().character.TalkingSprite;
-
 				intactChar.Ability = AbilityKind.BoardBoost;
 			}
 
@@ -268,14 +273,13 @@ public class NPCLib
 	static NPCLib()
 	{
 		UnityEngine.Debug.Log("[NPCLib]: Initializing IL Patching");
-		ILPatching.InteractionCoroutine_Patch();
 		ILPatching.InteractableCharacter_Patch();
 		UnityEngine.Debug.Log("[NPCLib]: Finished IL Patching");
 		UnityEngine.Debug.LogWarning("[NPCLib]: Good luck!");
 	}
 }
 
-public record DialogEntry(Characters character, string line);
+public record DialogEntry(Characters character, string line, ReactionType expression);
 
 public static class ILPatching
 {
@@ -327,61 +331,6 @@ public static class ILPatching
 
 			// Call method with "this" as argument
 			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Start", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
-		});
-	}
-
-	public static void InteractionCoroutine_Patch()
-	{
-		// Get methodbase using HarmonyX & MonoMod.Utils. AccessTools.Method uses every BindingFlag, so no need to set our own.
-		MethodInfo methodInfo = AccessTools.Method(typeof(InteractionPlayer), "InteractionCoroutine");
-		if (methodInfo == null) throw new Exception($"Method 'InteractionCoroutine' not found in 'InteractionPlayer' dumbass");
-
-		// Check if we made an oopsie
-		MethodBase methodSMT = methodInfo.GetStateMachineTarget();
-		if (methodSMT == null) throw new Exception($"Method 'MoveNext' not found in 'InteractionCoroutine' dumbass");
-
-		// Create new hook
-		new ILHook(methodSMT, (ILContext il) =>
-		{
-			// Create new cursor
-			ILCursor c = new(il);
-
-			// Find the callvirt to ParseText
-			MethodInfo parseTextMethod = typeof(TextTagParser<InteractionTag>)
-				.GetMethod("ParseText", [typeof(string), typeof(List<InteractionTag>).MakeByRefType()]);
-
-			// If for some reason the method is not found, throw an error
-			if (!c.TryGotoNext(i => i.MatchCallvirt(parseTextMethod)))
-				throw new Exception("Couldn't find ParseText callvirt");
-
-			// Could break in the future
-			c.GotoPrev(i => i.MatchLdloc(out var _));
-
-			// Get Instance from NPC, making sure to use binding flags since Instances is null at this time
-			c.Emit(OpCodes.Ldsfld, typeof(NPC).GetField("Instances", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic));
-
-			// Also could break in the future. This gets the local variable (V_5) from the method.
-			c.Emit(OpCodes.Ldloc_S, (byte)5);
-
-			// Call method to check if line exists in any custom NPC text, returning a bool
-			c.EmitDelegate<Func<List<NPC>, string, bool>>((instances, str) => instances.Any(i => i.ContainsLine(str)));
-
-			// new condition
-			ILLabel afterThrow = c.DefineLabel();
-
-			c.Emit(OpCodes.Brfalse_S, afterThrow); // False, skip the throw
-
-			// Create's "Skipping" text
-			c.Emit(OpCodes.Ldstr, "Skipping");
-
-			// Create's new Exception with the previous string
-			c.Emit(OpCodes.Newobj, typeof(Exception).GetConstructor([typeof(string)]));
-
-			// Makes it throw
-			c.Emit(OpCodes.Throw);
-
-			// After condition
-			c.MarkLabel(afterThrow);
 		});
 	}
 
