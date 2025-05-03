@@ -35,6 +35,7 @@ public struct InterCharacter
 		Character = character;
 		switch (character)
 		{
+			default:
 			case Characters.Captain:
 				Name = "The Captain";
 				officalName = "Captain";
@@ -109,15 +110,10 @@ public struct InterCharacter
 				Name = "Weeboh";
 				officalName = "Weeboh3";
 				break;
-
-			default:
-				Name = "Undefined";
-				officalName = "Default";
-				break;
 		}
 		InteractionCharacter = interactonCharacter;
 		InteractionCharacter.CharacterSprite = GetCharacterSprite();
-		InteractionCharacter.VocalBank = GetCharacterVocals(officalName);
+		InteractionCharacter.VocalBank = GetCharacterVocals(Name);
 	}
 
 	public Characters Character { get; set; } = default;
@@ -132,10 +128,10 @@ public struct InterCharacter
 			.GetComponent<UnityEngine.UI.Image>().sprite;
 	}
 
-	private InteractionVocalBank GetCharacterVocals(string officalName)
+	private InteractionVocalBank GetCharacterVocals(string name)
 	{
 		return Resources.FindObjectsOfTypeAll<InteractionVocalBank>()
-			.FirstOrDefault(v => v.name.Contains(officalName, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
+			.FirstOrDefault(v => v.name.Contains(name, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
 	}
 }
 
@@ -148,8 +144,6 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 	public void Add(Characters c, string l, ReactionType e = ReactionType.Expressionless) => Add(new DialogEntry(c, l, e));
 
 	public void Dispose() => _npc.CommitDialog(this);
-
-	public void ManualCommit(List<DialogEntry> manualEntries) => _npc.CommitDialog(manualEntries);
 }
 
 public class NPC
@@ -214,7 +208,7 @@ public class NPC
 		if (dialogs == null) throw new ArgumentException("No dialog was provided.");
 		UnityEngine.Debug.LogError("");
 
-		Lines.Clear();
+		Lines?.Clear();
 
 		// Loop through each dialog entry
 		foreach (DialogEntry dialog in dialogs)
@@ -254,7 +248,7 @@ public class NPC
 			interactionLine.line = new UnlocalizedString(dialog.line);
 			interactionLine.character = character.InteractionCharacter;
 			interactionLine.requirements = [];
-			Lines.Add(interactionLine);
+			Lines!.Add(interactionLine);
 			Interaction.Lines = Lines.ToArray();
 		}
 
@@ -337,7 +331,7 @@ public static class ILPatching
 	public static void ReImp_Awake(InteractableCharacter instance, bool allow = false)
 	{
 		// This is because the default npc's have their shit setup in the unity hierarchy
-		if (!instance.questionMarkTarget && !allow) { return; }
+		if (allow == false) { return; }
 
 		// Default code from InteractableCharacter
 		instance.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
