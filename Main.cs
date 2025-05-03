@@ -301,9 +301,6 @@ public static class ILPatching
 			// Load 'this' (the InteractableCharacter instance)
 			c.Emit(OpCodes.Ldarg_0);
 
-			// False
-			c.Emit(OpCodes.Ldc_I4_0);
-
 			// Call method with "this" and false as arguments
 			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Awake", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
 
@@ -328,10 +325,11 @@ public static class ILPatching
 		});
 	}
 
-	public static void ReImp_Awake(InteractableCharacter instance, bool allow = false)
+	public static void ReImp_Awake(InteractableCharacter instance)
 	{
 		// This is because the default npc's have their shit setup in the unity hierarchy
-		if (allow == false) { return; }
+		// So if the instance does not have a questionMarkTarget we return
+		if (!instance.questionMarkTarget) { return; }
 
 		// Default code from InteractableCharacter
 		instance.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
@@ -343,9 +341,9 @@ public static class ILPatching
 
 	public static void ReImp_Start(InteractableCharacter instance)
 	{
-		if (NPC.Instances?.Any(i => i.GameObject?.name == instance.name) ?? false)
+		if (instance.State == null)
 		{
-			ReImp_Awake(instance, true);
+			ReImp_Awake(instance);
 		}
 	}
 }
