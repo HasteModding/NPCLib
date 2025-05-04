@@ -112,6 +112,10 @@ public struct InterCharacter
 	}
 }
 
+/// <summary>
+/// A builder class for constructing dialog sequences associated with an NPC.
+/// Automatically commits the dialog to the NPC when disposed.
+/// </summary>
 public class DialogBuilder : List<DialogEntry>, IDisposable
 {
 	private readonly NPC _npc;
@@ -132,6 +136,9 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 	public void Dispose() => _npc.CommitDialog(this);
 }
 
+/// <summary>
+/// cock
+/// </summary>
 public class NPC
 {
 	/// <summary>
@@ -159,6 +166,7 @@ public class NPC
 		{ exc.cameraRig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>(); }
 
 		// Setup the new interaction
+		interaction = new();
 		interaction.name = interactionName;
 		interaction.factsToSet = [];
 		interaction.canBePlayedSeveralTimes = true;
@@ -173,6 +181,7 @@ public class NPC
 		interactionCharacter.onComplete = (exc.onComplete != null ? () => { exc.onComplete?.Invoke(this); } : null);
 
 		_extraConfig = exc;
+		characters = new();
 		instances.Add(this);
 	}
 
@@ -240,17 +249,17 @@ public class NPC
 	/// <summary>
 	/// Contains a list of every NPC.
 	/// </summary>
-	public static List<NPC> instances { get; set; } = new();
+	public static List<NPC> instances { get; private set; } = new();
 
 	/// <summary>
 	/// Contains a list of every character that is used in the dialog.
 	/// </summary>
-	public List<InterCharacter> characters { get; set; } = new();
+	public List<InterCharacter> characters { get; set; } = null!;
 
 	/// <summary>
 	/// The Interaction that is created for the NPC.
 	/// </summary>
-	public Interaction interaction { get; set; } = new();
+	public Interaction interaction { get; set; } = null!;
 
 	/// <summary>
 	/// The InteractableCharacter component that is attached to the NPC.
@@ -260,7 +269,7 @@ public class NPC
 	/// <summary>
 	/// Contains every line that the dialog uses.
 	/// </summary>
-	public List<InteractionLine> lines { get; set; } = new();
+	public List<InteractionLine> lines { get; set; } = null!;
 
 	/// <summary>
 	/// Stores extra configuration for the NPC.
@@ -268,7 +277,8 @@ public class NPC
 	private ExtraConfig _extraConfig { get; set; } = default;
 
 	/// <summary>
-	/// Commits the dialog to the NPC by doing checks, <seealso cref="InterCharacter"/> creation/obtaining and dialog validation.
+	/// Commits the dialog to the NPC by doing checks, <seealso cref="InterCharacter"/> creation/obtaining and dialog validation.<br/>
+	/// This also clears any previous dialogs that were commited.
 	/// </summary>
 	/// <param name="dialogs"></param>
 	/// <exception cref="ArgumentException"></exception>
@@ -277,7 +287,8 @@ public class NPC
 		// Null check
 		if (dialogs == null) throw new ArgumentException("No dialog was provided.");
 
-		lines?.Clear();
+		// Creates a new empty list, discarding the original lines
+		lines = new();
 
 		// Loop through each dialog entry
 		foreach (DialogEntry dialog in dialogs)
@@ -350,7 +361,7 @@ public record DialogEntry(Characters character, string line);
 public static class ILPatching
 {
 	/// <summary>
-	/// Overrides the Start and Awake methods of the <seealso cref="InteractableCharacter"> class that is inherited from the <seealso cref="MonoBehaviour"/> class."
+	/// Overrides the Start and Awake methods of the <seealso cref="InteractableCharacter"/> class that is inherited from the <seealso cref="MonoBehaviour"/> class."
 	/// </summary>
 	/// <exception cref="Exception"></exception>
 	public static void InteractableCharacter_Patch()
@@ -404,22 +415,16 @@ public static class ILPatching
 	public static void ReImp_Awake(InteractableCharacter instance)
 	{
 		// This is because the default npc's have their shit setup in the unity hierarchy
-		// So if the instance does not have a questionMarkTarget we return
-		if (!instance.questionMarkTarget) { return; }
+		// So if the instance does not have a questionMarkTarget, we return
+		if (!instance?.questionMarkTarget) { return; }
 
 		// Default code from InteractableCharacter
-		instance.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
+		instance!.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
 		instance.State.RegisterState(new InteractableCharacter.NoneState());
 		instance.State.RegisterState(new InteractableCharacter.HasInteractionState());
 		instance.State.RegisterState(new InteractableCharacter.HasAbilityUnlockState());
 		instance.State.SwitchState<InteractableCharacter.NoneState>(false);
 	}
 
-	public static void ReImp_Start(InteractableCharacter instance)
-	{
-		if (instance.State == null)
-		{
-			ReImp_Awake(instance);
-		}
-	}
+	public static void ReImp_Start(InteractableCharacter instance) => ReImp_Awake(instance.State == null ? instance : null!);
 }

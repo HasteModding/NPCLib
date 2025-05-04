@@ -7,6 +7,10 @@ It's not necessarily hard to do, it's just trying to find a way to make it easie
 But feel free to mess around with it. Break it. Re-write it. Spit on it. Don't care. Go for gold. </br>
 And if you want to use this, give credit where it's due and prepare for any bugs that will occur.
 
+# Update 0.2.1
+- Added more XML documentation.
+- Minor cleaning.
+
 # Update 0.2
 - Added an extra config struct.
 - Added summaries 
