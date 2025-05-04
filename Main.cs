@@ -137,7 +137,8 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 }
 
 /// <summary>
-/// cock
+/// Represents a non-player character (NPC) with an associated <seealso cref="Interaction"/>, <seealso cref="DialogBuilder"/> system, and <seealso cref="InteractableCharacter"/> logic.<br/>
+/// Supports multiple constructor overloads for flexibility in setup, and manages its own lifecycle within a static list of instances.
 /// </summary>
 public class NPC
 {
