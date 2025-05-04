@@ -7,13 +7,19 @@ It's not necessarily hard to do, it's just trying to find a way to make it easie
 But feel free to mess around with it. Break it. Re-write it. Spit on it. Don't care. Go for gold. </br>
 And if you want to use this, give credit where it's due and prepare for any bugs that will occur.
 
-# Update 1.2
-- I hate patches
+# Update 0.2
+- Added an extra config struct.
+- Added summaries 
+- Reworked the InterCharacter class.
+- Changed most methods and fields to be public.
 
-# Update 1.1
+# Update 0.1.2
+- I hate patches.
+
+# Update 0.1.1
 - Fixed Weeboh and Grunt's voicelines not being found cause I am stupid. <sup><sub>Thank you Stevelion for the catch</sub></sup>
 
-# Update 1
+# Update 0.1
 - Added expressions enum.
 - Added new constructor for marker point offset instead of a transform.
 - Added actions for when the dialog is finished.

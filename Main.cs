@@ -28,103 +28,80 @@ public enum Characters
 	Weeboh3,
 }
 
+public struct ExtraConfig
+{
+	/// <summary>
+	/// Set's a custom camera rig for the NPC.
+	/// </summary>
+	public InteractionCameraRig cameraRig;
+
+	/// <summary>
+	/// Invoke action when the NPC dialog is finished
+	/// </summary>
+	public Action<NPC> onComplete;
+
+	/// <summary>
+	/// Invoke action when the NPC is created.
+	/// </summary>
+	public Action<NPC> onCreated;
+
+	public ExtraConfig()
+	{
+		cameraRig = null!;
+		onComplete = null!;
+		onCreated = null!;
+	}
+}
+
 public struct InterCharacter
 {
 	internal InterCharacter(Characters character, InteractionCharacter interactonCharacter)
 	{
 		Character = character;
-		switch (character)
+		Name = character switch
 		{
-			default:
-			case Characters.Captain:
-				Name = "The Captain";
-				officalName = "Captain";
-				break;
+			Characters.Captain => "The Captain",
+			Characters.Courier => "Zoe",
+			Characters.Keeper => "Riza",
+			Characters.Leader => "Ava",
+			Characters.Sage => "Daro",
+			Characters.Heir => "Niada",
+			Characters.Researcher => "Gan",
+			Characters.Wraith => "Wraith",
+			Characters.Dalil => "Dalil",
+			Characters.Grunt | Characters.Grunt2 | Characters.Grunt3 => "Grunt",
+			Characters.Weeboh | Characters.Weeboh2 | Characters.Weeboh3 => "Weeboh",
+			_ => "Captain",
+		};
 
-			case Characters.Courier:
-				Name = "Zoe";
-				officalName = "Courier";
-				break;
-
-			case Characters.Keeper:
-				Name = "Riza";
-				officalName = "Keeper";
-				break;
-
-			case Characters.Leader:
-				Name = "Ava";
-				officalName = "Leader";
-				break;
-
-			case Characters.Sage:
-				Name = "Daro";
-				officalName = "Sage";
-				break;
-
-			case Characters.Heir:
-				Name = "Niada";
-				officalName = "Heir";
-				break;
-
-			case Characters.Researcher:
-				Name = "Gan";
-				officalName = "Researcher";
-				break;
-
-			case Characters.Wraith:
-				Name = "Wraith";
-				officalName = "Wraith";
-				break;
-
-			case Characters.Dalil:
-				Name = "Dalil";
-				officalName = "Dalil";
-				break;
-
-			case Characters.Grunt:
-				Name = "Grunt";
-				officalName = "Grunt";
-				break;
-
-			case Characters.Grunt2:
-				Name = "Grunt";
-				officalName = "Grunt2";
-				break;
-
-			case Characters.Grunt3:
-				Name = "Grunt";
-				officalName = "Grunt3";
-				break;
-
-			case Characters.Weeboh:
-				Name = "Weeboh";
-				officalName = "Weeboh";
-				break;
-
-			case Characters.Weeboh2:
-				Name = "Weeboh";
-				officalName = "Weeboh2";
-				break;
-
-			case Characters.Weeboh3:
-				Name = "Weeboh";
-				officalName = "Weeboh3";
-				break;
-		}
 		InteractionCharacter = interactonCharacter;
 		InteractionCharacter.CharacterSprite = GetCharacterSprite();
 		InteractionCharacter.VocalBank = GetCharacterVocals(Name);
 	}
 
+	/// <summary>
+	/// Save the character enum that is used in the dialog.
+	/// </summary>
 	public Characters Character { get; set; } = default;
+
+	/// <summary>
+	/// Creates the <seealso cref="InteractionCharacter"/> that is used in the dialog.
+	/// </summary>
 	public InteractionCharacter InteractionCharacter { get; set; } = null!;
+
+	/// <summary>
+	/// The name of the character that is used in the dialog.
+	/// </summary>
 	public string Name { get; set; } = string.Empty;
+
+	/// <summary>
+	/// The <seealso cref="InteractionVocalBank"/> that the character uses.
+	/// </summary>
 	public InteractionVocalBank VocalBank { get; set; } = null!;
-	private string officalName { get; set; } = string.Empty;
 
 	private Sprite GetCharacterSprite()
 	{
-		return GameObject.Find($"GAME/Handlers/InteractionHandler/InteractionUI/Canvas/Characters/{officalName}/Image")
+		return GameObject.Find($"GAME/Handlers/InteractionHandler/InteractionUI/Canvas/Characters/{Character.ToString()}/Image")
 			.GetComponent<UnityEngine.UI.Image>().sprite;
 	}
 
@@ -141,74 +118,166 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 
 	public DialogBuilder(NPC npc) => _npc = npc;
 
-	public void Add(Characters c, string l, ReactionType e = ReactionType.Expressionless) => Add(new DialogEntry(c, l, e));
+	/// <summary>
+	/// Adds a new dialog entry to the list.
+	/// </summary>
+	/// <param name="c"></param>
+	/// <param name="l"></param>
+	public void Add(Characters c, string l) => Add(new DialogEntry(c, l));
 
+	/// <summary>
+	/// Calls the <see cref="NPC.CommitDialog"/> method once the using is finished.
+	/// Making it simplier for the user to create a dialog.
+	/// </summary>
 	public void Dispose() => _npc.CommitDialog(this);
 }
 
 public class NPC
 {
-	public NPC(Transform character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!)
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character transform to attach the interaction to.</param>
+	/// <param name="markerPoint">The marker point for the interaction's question mark UI.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(Transform character, Transform markerPoint, string interactionName, ExtraConfig exc = default)
 	{
-		// Few of checks
-		if (character == null) throw new ArgumentNullException(nameof(character), "Character is null.");
-		if (string.IsNullOrEmpty(interactionName)) throw new ArgumentException("Interaction name is null or empty.", nameof(interactionName));
-		if (Instances.Any(i => i.Interaction.name == interactionName)) throw new ArgumentException($"Interaction name '{interactionName}' already exists.", nameof(interactionName));
-		if (rig == null) rig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>();
+		if (character == null)
+		{ throw new ArgumentNullException(nameof(character), "Character is null."); }
+
+		if (string.IsNullOrEmpty(interactionName))
+		{ throw new ArgumentException("Interaction name is null or empty.", nameof(interactionName)); }
+
+		if (instances.Any(i => i.interaction.name == interactionName))
+		{ throw new ArgumentException($"Interaction name '{interactionName}' already exists.", nameof(interactionName)); }
+
+		if (exc.cameraRig == null)
+		{ exc.cameraRig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>(); }
 
 		// Setup the new interaction
-		Interaction.name = interactionName;
-		Interaction.factsToSet = [];
-		Interaction.canBePlayedSeveralTimes = true;
+		interaction.name = interactionName;
+		interaction.factsToSet = [];
+		interaction.canBePlayedSeveralTimes = true;
 
 		// Create a new InteractableCharacter component and add it to the Character gameobject.
 		// Additionally we turn it off straight away so the Start() method does not execute.
-		(_interactioncharacter = character.gameObject.AddComponent<InteractableCharacter>()).enabled = false;
-		_interactioncharacter.questionMarkTarget = markerPoint;
-		_interactioncharacter.interactionCenter = character;
-		_interactioncharacter.unlockInteraction = Interaction;
-		_interactioncharacter.cameraRig = rig;
-		_interactioncharacter.onComplete = onComplete;
+		(interactionCharacter = character.gameObject.AddComponent<InteractableCharacter>()).enabled = false;
+		interactionCharacter.questionMarkTarget = markerPoint;
+		interactionCharacter.interactionCenter = character;
+		interactionCharacter.unlockInteraction = interaction;
+		interactionCharacter.cameraRig = exc.cameraRig;
+		interactionCharacter.onComplete = (exc.onComplete != null ? () => { exc.onComplete?.Invoke(this); } : null);
 
-		Instances.Add(this);
+		_extraConfig = exc;
+		instances.Add(this);
 	}
 
-	public NPC(GameObject character, Transform markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
-		this(character.transform, markerPoint, interactionName, rig, onComplete)
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character GameObject to attach the interaction to.</param>
+	/// <param name="markerPoint">The marker point for the interaction's question mark UI.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(GameObject character, Transform markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character.transform, markerPoint, interactionName, exc)
 	{ }
 
-	public NPC(Transform character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
-		this(character, markerPoint.transform, interactionName, rig, onComplete)
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character transform to attach the interaction to.</param>
+	/// <param name="markerPoint">The marker point for the interaction's question mark UI.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(Transform character, GameObject markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character, markerPoint.transform, interactionName, exc)
 	{ }
 
-	public NPC(GameObject character, GameObject markerPoint, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
-		this(character.transform, markerPoint.transform, interactionName, rig, onComplete)
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character Gameobject to attach the interaction to.</param>
+	/// <param name="markerPoint">The marker point for the interaction's question mark UI.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(GameObject character, GameObject markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character.transform, markerPoint.transform, interactionName, exc)
 	{ }
 
-	public NPC(GameObject character, Vector3 markerOffset, string interactionName, InteractionCameraRig rig = null!, Action onComplete = null!) :
-		this(character.transform, (GameObject)null!, interactionName, rig, onComplete)
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character GameObject to attach the interaction to.</param>
+	/// <param name="markerOffset">Creates a new marker with an offset.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(GameObject character, Vector3 markerOffset, string interactionName, ExtraConfig exc = default) :
+		this(character.transform, (GameObject)null!, interactionName, exc)
 	{
 		GameObject markerPoint = new GameObject("MarkerPoint");
 		markerPoint.transform.SetParent(character.transform);
 		markerPoint.transform.localPosition = markerOffset;
-		_interactioncharacter.questionMarkTarget = markerPoint.transform;
+		interactionCharacter.questionMarkTarget = markerPoint.transform;
 	}
 
-	public static List<NPC> Instances { get; set; } = new();
-	public GameObject GameObject { get => _interactioncharacter.gameObject ?? null!; }
-	public Interaction Interaction { get; set; } = new();
-	public List<InteractionLine> Lines { get; set; } = new();
-	public GameObject QuestionMarkObject { get => _interactioncharacter.questionMarkTarget.gameObject ?? null!; }
-	private List<InterCharacter> _characters { get; set; } = new();
-	private InteractableCharacter _interactioncharacter { get; set; } = null!;
+	/// <summary>
+	/// Contains a list of every NPC.
+	/// </summary>
+	public static List<NPC> instances { get; set; } = new();
 
-	internal void CommitDialog(List<DialogEntry> dialogs)
+	/// <summary>
+	/// Contains a list of every character that is used in the dialog.
+	/// </summary>
+	public List<InterCharacter> characters { get; set; } = new();
+
+	/// <summary>
+	/// The Interaction that is created for the NPC.
+	/// </summary>
+	public Interaction interaction { get; set; } = new();
+
+	/// <summary>
+	/// The InteractableCharacter component that is attached to the NPC.
+	/// </summary>
+	public InteractableCharacter interactionCharacter { get; set; } = null!;
+
+	/// <summary>
+	/// Contains every line that the dialog uses.
+	/// </summary>
+	public List<InteractionLine> lines { get; set; } = new();
+
+	/// <summary>
+	/// Stores extra configuration for the NPC.
+	/// </summary>
+	private ExtraConfig _extraConfig { get; set; } = default;
+
+	/// <summary>
+	/// Commits the dialog to the NPC by doing checks, <seealso cref="InterCharacter"/> creation/obtaining and dialog validation.
+	/// </summary>
+	/// <param name="dialogs"></param>
+	/// <exception cref="ArgumentException"></exception>
+	public void CommitDialog(List<DialogEntry> dialogs)
 	{
 		// Null check
 		if (dialogs == null) throw new ArgumentException("No dialog was provided.");
-		UnityEngine.Debug.LogError("");
 
-		Lines?.Clear();
+		lines?.Clear();
 
 		// Loop through each dialog entry
 		foreach (DialogEntry dialog in dialogs)
@@ -229,34 +298,38 @@ public class NPC
 			}
 
 			// Get character by name
-			InterCharacter character = _characters.FirstOrDefault(c => c.Character == dialog.character);
+			InterCharacter character = characters.FirstOrDefault(c => c.Character == dialog.character);
 
 			// If the character does not exist, we create a new one
 			if (character.InteractionCharacter == null || string.IsNullOrEmpty(character.Name))
 			{
 				InteractionCharacter intactChar = new();
-				_characters.Add(new(dialog.character, intactChar));
-				character = _characters.Last();
+				characters.Add(new(dialog.character, intactChar));
+				character = characters.Last();
 
 				intactChar.DisplayName = new UnlocalizedString(character.Name);
-				intactChar.CharacterColor = new Color(0.3216f, 0.1137f, 0.2923f, 1);
-				intactChar.TalkingSprite = GameObject.Find("Hub_Characters/Captain/").GetComponent<InteractableCharacter>().character.TalkingSprite;
-				intactChar.Ability = AbilityKind.BoardBoost;
+				intactChar.CharacterColor = new Color(0.3216f, 0.1137f, 0.2923f, 1); // Does not matter
+				intactChar.TalkingSprite = GameObject.Find("Hub_Characters/Captain/").GetComponent<InteractableCharacter>().character.TalkingSprite;  // Does not matter
+				intactChar.Ability = AbilityKind.BoardBoost; // Does not matter
 			}
 
 			InteractionLine interactionLine = new();
 			interactionLine.line = new UnlocalizedString(dialog.line);
 			interactionLine.character = character.InteractionCharacter;
 			interactionLine.requirements = [];
-			Lines!.Add(interactionLine);
-			Interaction.Lines = Lines.ToArray();
+			lines!.Add(interactionLine);
+			interaction.Lines = lines.ToArray();
 		}
 
-		_interactioncharacter.character = Lines.First().character;
-		_interactioncharacter.enabled = true;
-	}
+		interactionCharacter.character = lines.First().character;
+		UnityEngine.Debug.LogError("13");
 
-	internal bool ContainsLine(string line) => Lines.Any(_lines => _lines.line.GetLocalizedString() == line);
+		if (!interactionCharacter.enabled)
+		{
+			interactionCharacter.enabled = true;
+			_extraConfig.onCreated?.Invoke(this);
+		}
+	}
 }
 
 [Landfall.Modding.LandfallPlugin]
@@ -273,10 +346,14 @@ public class NPCLib
 	}
 }
 
-public record DialogEntry(Characters character, string line, ReactionType expression);
+public record DialogEntry(Characters character, string line);
 
 public static class ILPatching
 {
+	/// <summary>
+	/// Overrides the Start and Awake methods of the <seealso cref="InteractableCharacter"> class that is inherited from the <seealso cref="MonoBehaviour"/> class."
+	/// </summary>
+	/// <exception cref="Exception"></exception>
 	public static void InteractableCharacter_Patch()
 	{
 		// Get references to the methods and fields we need
