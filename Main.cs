@@ -69,9 +69,9 @@ public struct InterCharacter
 			Characters.Researcher => "Gan",
 			Characters.Wraith => "Wraith",
 			Characters.Dalil => "Dalil",
-			Characters.Grunt | Characters.Grunt2 | Characters.Grunt3 => "Grunt",
-			Characters.Weeboh | Characters.Weeboh2 | Characters.Weeboh3 => "Weeboh",
-			_ => "Captain",
+			Characters.Grunt or Characters.Grunt2 or Characters.Grunt3 => "Grunt",
+			Characters.Weeboh or Characters.Weeboh2 or Characters.Weeboh3 => "Weeboh",
+			_ => "The Captain",
 		};
 
 		InteractionCharacter = interactonCharacter;
@@ -322,7 +322,6 @@ public class NPC
 		}
 
 		interactionCharacter.character = lines.First().character;
-		UnityEngine.Debug.LogError("13");
 
 		if (!interactionCharacter.enabled)
 		{
