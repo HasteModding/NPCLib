@@ -7,8 +7,6 @@ using UnityEngine;
 using Zorro.Core;
 using static Landfall.Haste.ReactionUI;
 
-namespace NPCLib;
-
 public enum Characters
 {
 	Captain,
@@ -110,6 +108,77 @@ public struct InterCharacter
 		return Resources.FindObjectsOfTypeAll<InteractionVocalBank>()
 			.FirstOrDefault(v => v.name.Contains(name, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
 	}
+}
+
+public static class ILPatching
+{
+	/// <summary>
+	/// Overrides the Start and Awake methods of the <seealso cref="InteractableCharacter"/> class that is inherited from the <seealso cref="MonoBehaviour"/> class."
+	/// </summary>
+	/// <exception cref="Exception"></exception>
+	public static void InteractableCharacter_Patch()
+	{
+		// Get references to the methods and fields we need
+		MethodInfo startMethod = typeof(InteractableCharacter).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance);
+		if (startMethod == null) throw new Exception("Couldn't find Start method");
+
+		MethodInfo awakeMethod = typeof(InteractableCharacter).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance);
+		if (awakeMethod == null) throw new Exception("Couldn't find Awake method");
+
+		// Tell the original lines to fuck off and insert our own method call
+		new ILHook(awakeMethod, il =>
+		{
+			// Ee errrr
+			ILCursor c = new ILCursor(il);
+
+			// Move to first instruction
+			c.Goto(0);
+
+			// Remove all instructions
+			while (c.Next != null) c.Remove();
+
+			// Load 'this' (the InteractableCharacter instance)
+			c.Emit(OpCodes.Ldarg_0);
+
+			// Call method with "this" and false as arguments
+			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Awake", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+
+			// Return, end of method
+			c.Emit(OpCodes.Ret);
+		});
+
+		// Insert our ReImp at the start, avoids rewriting the whole start method since we only need a check, then continue.
+		new ILHook(startMethod, il =>
+		{
+			// Ee errrr
+			ILCursor c = new ILCursor(il);
+
+			// Move to first instruction
+			c.Goto(0);
+
+			// Load 'this' (the InteractableCharacter instance)
+			c.Emit(OpCodes.Ldarg_0);
+
+			// Call method with "this" as argument
+			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Start", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+		});
+	}
+
+	public static void ReImp_Awake(InteractableCharacter instance)
+	{
+		// This is because the default npc's have their shit setup in the unity hierarchy
+		// So if the instance does not have a questionMarkTarget, we return
+		if (!instance?.questionMarkTarget) { return; }
+
+		// Default code from InteractableCharacter
+		instance!.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
+		instance.State.RegisterState(new InteractableCharacter.NoneState());
+		instance.State.RegisterState(new InteractableCharacter.HasInteractionState());
+		instance.State.RegisterState(new InteractableCharacter.HasAbilityUnlockState());
+		instance.State.SwitchState<InteractableCharacter.NoneState>(false);
+	}
+
+	public static void ReImp_Start(InteractableCharacter instance) => ReImp_Awake(instance.State == null ? instance : null!);
 }
 
 /// <summary>
@@ -358,74 +427,3 @@ public class NPCLib
 }
 
 public record DialogEntry(Characters character, string line);
-
-public static class ILPatching
-{
-	/// <summary>
-	/// Overrides the Start and Awake methods of the <seealso cref="InteractableCharacter"/> class that is inherited from the <seealso cref="MonoBehaviour"/> class."
-	/// </summary>
-	/// <exception cref="Exception"></exception>
-	public static void InteractableCharacter_Patch()
-	{
-		// Get references to the methods and fields we need
-		MethodInfo startMethod = typeof(InteractableCharacter).GetMethod("Start", BindingFlags.NonPublic | BindingFlags.Instance);
-		if (startMethod == null) throw new Exception("Couldn't find Start method");
-
-		MethodInfo awakeMethod = typeof(InteractableCharacter).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance);
-		if (awakeMethod == null) throw new Exception("Couldn't find Awake method");
-
-		// Tell the original lines to fuck off and insert our own method call
-		new ILHook(awakeMethod, il =>
-		{
-			// Ee errrr
-			ILCursor c = new ILCursor(il);
-
-			// Move to first instruction
-			c.Goto(0);
-
-			// Remove all instructions
-			while (c.Next != null) c.Remove();
-
-			// Load 'this' (the InteractableCharacter instance)
-			c.Emit(OpCodes.Ldarg_0);
-
-			// Call method with "this" and false as arguments
-			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Awake", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
-
-			// Return, end of method
-			c.Emit(OpCodes.Ret);
-		});
-
-		// Insert our ReImp at the start, avoids rewriting the whole start method since we only need a check, then continue.
-		new ILHook(startMethod, il =>
-		{
-			// Ee errrr
-			ILCursor c = new ILCursor(il);
-
-			// Move to first instruction
-			c.Goto(0);
-
-			// Load 'this' (the InteractableCharacter instance)
-			c.Emit(OpCodes.Ldarg_0);
-
-			// Call method with "this" as argument
-			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Start", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
-		});
-	}
-
-	public static void ReImp_Awake(InteractableCharacter instance)
-	{
-		// This is because the default npc's have their shit setup in the unity hierarchy
-		// So if the instance does not have a questionMarkTarget, we return
-		if (!instance?.questionMarkTarget) { return; }
-
-		// Default code from InteractableCharacter
-		instance!.State = new InteractableCharacter.StateMachine(instance.questionMarkTarget, instance);
-		instance.State.RegisterState(new InteractableCharacter.NoneState());
-		instance.State.RegisterState(new InteractableCharacter.HasInteractionState());
-		instance.State.RegisterState(new InteractableCharacter.HasAbilityUnlockState());
-		instance.State.SwitchState<InteractableCharacter.NoneState>(false);
-	}
-
-	public static void ReImp_Start(InteractableCharacter instance) => ReImp_Awake(instance.State == null ? instance : null!);
-}
