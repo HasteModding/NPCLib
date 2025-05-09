@@ -1,7 +1,13 @@
 ﻿### <b><u>NPCLib</u></b>
 
-When it comes to adding interaction dialogues to your custom NPCs in Haste, NPCLib is here to help.
-This library contains all the resources you need to make your NPCs come to life, whether you're making a witty sage, a quirky merchant, or just a grunt who says "ugh." *I hope*
+> [!CAUTION]
+> This library isn't fully tested and/or working. Expect things to break.
+> Contact `ignoredsoul` on Discord for more information.
+
+NPCLib is a library that helps with adding interaction dialogues to your custom NPCs.  
+
+This library contains all the resources you need to make your NPCs come to life, 
+whether you're making a witty sage, a quirky merchant, or just a grunt who says "ugh."
 
 ---
 <!--------------------------------------------------------------------------------------->
@@ -11,7 +17,7 @@ This library contains all the resources you need to make your NPCs come to life,
 NPCLib is a modding tool that helps you:
 - Give your custom NPCs interaction dialogs.
 - Handle NPC interactions, behaviors, character sprites, vocal banks, and dialogue sequences with ease.
-- Patch Haste's `InteractableCharacter` class to make it work with your custom NPCs without the stupid fucking complications of unity.
+- Patch Haste's `InteractableCharacter` class to make it work with your custom NPCs without having to mess with Unity.
 
 ---
 <!--------------------------------------------------------------------------------------->
@@ -19,7 +25,7 @@ NPCLib is a modding tool that helps you:
 ### <b><u>Features</u></b>
 
 - **Dialog System**:  
-  Use the `DialogBuilder` to create and oversee dialog sequences. A slight simplification of the original bullshit.
+  Use the `DialogBuilder` to create and oversee dialog sequences with an easy-to-use syntax.
 
 - **Custom Characters**:  
   Define your NPCs using the `Characters` enum, and then let NPCLib take care of the rest, including vocal banks and sprites.
@@ -28,18 +34,18 @@ NPCLib is a modding tool that helps you:
   With a few lines of code, you can give your NPCs unique camera setups using the `InteractionCameraRig` class.
 
 - **IL Patching**:  
-  NPCLib patches the `InteractableCharacter` class in Unity, allowing you to concentrate on your mod without worrying about breaking the fucking game.
+  NPCLib patches the `InteractableCharacter` class in Unity, allowing you to concentrate on your mod without worrying about breaking anything.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
 ### <b1><u>Installation</u></b>
 
-You can "install" this library by either just slapping it's code into your project or the way I intended to do it:
+To install this library:
 
 1. Clone this repository into your mod directory
 2. Edit your .csproj file.
-3. Slap in the following XML;
+3. Add the following in your xml:
 ```xml
 <ItemGroup>
 	<Compile Include="..\NPCLib\*.cs">
@@ -48,6 +54,9 @@ You can "install" this library by either just slapping it's code into your proje
 </ItemGroup>
 ```
 
+> [!NOTE]
+> You can also directly add this library's code into your project.
+
 ---
 <!--------------------------------------------------------------------------------------->
 
@@ -55,7 +64,7 @@ You can "install" this library by either just slapping it's code into your proje
 
 #### Step 1: Create an NPC
 
-You can either create an MarkerPoint GameObject on your model for the marker to position itself
+You can either create an `MarkerPoint` `GameObject` on your model for the marker to position itself
 ```cs
 GameObject character = GameObject.Instantiate(MyCustomNPC);
 Transform markerPoint = character.transform.Find("MarkerPoint");
@@ -106,7 +115,8 @@ List<DialogEntry> dialog2 = new List<DialogEntry>()
 npc.CommitDialog(dialog2);
 ```
 
-Yeah, pick your poison.
+> [!TIP]
+> You can choose whichever approach works the best for you and your needs.
 
 ---
 <!--------------------------------------------------------------------------------------->
@@ -129,21 +139,21 @@ NPC npc = new NPC(character, markerPoint, "CustomInteraction", config);
 
 ### <b><u>FAQ</u></b>
 
-### **What is this for?**
+#### **What is this for?**
 NPCLib is for modders of **Haste** who want to add interaction dialogs to their custom NPCs.</br>
 If you're making a mod with NPCs, this is for you... Seriously just use this rather than messing around yourself 😭
 
-### **Does it work with other mods?**
-I fucking hope so.
+#### **Does it work with other mods?**
+Most likely. This may cause issues with other similar libraries, but there are none for now.
 
-### **What if I break something?**
+#### **What if I break something?**
 No worries! Open an issue or tell me in the [Haste Modding Community](https://discord.gg/hastebrokenworlds) server.
 
 
 ### **Contributing**
 
 Got ideas? Found a bug? Want to add something cool? Fork the repo, make your changes, and send a pull request. Contributions are always welcome! </br>
-Seriosuly, this project is hell.
+Seriously, this project is hell.
 
 ---
 <!--------------------------------------------------------------------------------------->
@@ -166,10 +176,14 @@ Big thanks to:
 <!--------------------------------------------------------------------------------------->
 
 ### <b><u>Final Words</u></b>
-<div align="center" style="font-size:50px">
-
-**I HATE EVERYTHING**
-</div>
+```
+  ___   _   _    _  _____ _____   _______     _______ ______   _______ _   _ ___ _   _  ____ 
+ |_ _| | | | |  / \|_   _| ____| | ____\ \   / / ____|  _ \ \ / /_   _| | | |_ _| \ | |/ ___|
+  | |  | |_| | / _ \ | | |  _|   |  _|  \ \ / /|  _| | |_) \ V /  | | | |_| || ||  \| | |  _ 
+  | |  |  _  |/ ___ \| | | |___  | |___  \ V / | |___|  _ < | |   | | |  _  || || |\  | |_| |
+ |___| |_| |_/_/   \_\_| |_____| |_____|  \_/  |_____|_| \_\|_|   |_| |_| |_|___|_| \_|\____|
+                                                                                             
+```
 
 ---
 <!--------------------------------------------------------------------------------------->
