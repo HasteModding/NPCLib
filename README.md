@@ -1,4 +1,4 @@
-﻿### <b><u>NPCLib</u></b>
+### **NPCLib**
 
 > [!CAUTION]
 > This library isn't fully tested and/or working. Expect things to break.
@@ -12,17 +12,17 @@ whether you're making a witty sage, a quirky merchant, or just a grunt who says 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>What does NPCLib do?</u></b>
+### **What does NPCLib do?**
 
 NPCLib is a modding tool that helps you:
 - Give your custom NPCs interaction dialogs.
 - Handle NPC interactions, behaviors, character sprites, vocal banks, and dialogue sequences with ease.
-- Patch Haste's `InteractableCharacter` class to make it work with your custom NPCs without having to mess with Unity.
+- Patch Haste's `InteractableCharacter` class to make it work with your custom NPCs.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>Features</u></b>
+### **Features**
 
 - **Dialog System**:  
   Use the `DialogBuilder` to create and oversee dialog sequences with an easy-to-use syntax.
@@ -34,12 +34,12 @@ NPCLib is a modding tool that helps you:
   With a few lines of code, you can give your NPCs unique camera setups using the `InteractionCameraRig` class.
 
 - **IL Patching**:  
-  NPCLib patches the `InteractableCharacter` class in Unity, allowing you to concentrate on your mod without worrying about breaking anything.
+  NPCLib patches the `InteractableCharacter` class, allowing you to concentrate on your mod without worrying about breaking anything.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b1><u>Installation</u></b>
+### **Installation**
 
 To install this library:
 
@@ -48,9 +48,9 @@ To install this library:
 3. Add the following in your xml:
 ```xml
 <ItemGroup>
-	<Compile Include="..\NPCLib\*.cs">
-		<Link>NPCLib\%(Filename)%(Extension)</Link>
-	</Compile>
+  <Compile Include=".\NPCLib\*.cs">
+    <Link>NPCLib\%(Filename)%(Extension)</Link>
+  </Compile>
 </ItemGroup>
 ```
 
@@ -60,7 +60,7 @@ To install this library:
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>How to use NPCLib in your project</u></b>
+### **How to use NPCLib in your project**
 
 #### Step 1: Create an NPC
 
@@ -86,16 +86,16 @@ There are multiple ways of creating dialog for your NPC.
 NPC npc = ...; // Your NPC instance
 using (new DialogBuilder(npc)
 {
-    { Characters.Captain, "Hello." },
-    { Characters.Courier, "Hi!" },
+  { Characters.Captain, "Hello." },
+  { Characters.Courier, "Hi!" },
 }) { }
 ```
 ```cs
 NPC npc = ...; // Your NPC instance
 using (DialogBuilder builder = new DialogBuilder(npc))
 {
-	builder.Add(Characters.Captain, "Welcome to the ship!");
-	builder.Add(Characters.Courier, "I have a message for you.");
+  builder.Add(Characters.Captain, "Welcome to the ship!");
+  builder.Add(Characters.Courier, "I have a message for you.");
 }
 ```
 ```cs
@@ -107,12 +107,12 @@ npc.CommitDialog(dialog);
 ```
 ```cs
 NPC npc = ...; // Your NPC instance
-List<DialogEntry> dialog2 = new List<DialogEntry>()
+List<DialogEntry> dialog = new List<DialogEntry>()
 {
-    new(Characters.Captain, "Hello."),
-    new(Characters.Courier, "Hi!")
+  new(Characters.Captain, "Hello."),
+  new(Characters.Courier, "Hi!")
 };
-npc.CommitDialog(dialog2);
+npc.CommitDialog(dialog);
 ```
 
 > [!TIP]
@@ -127,9 +127,9 @@ Want to tweak how your NPC behaves? Use the `ExtraConfig` struct to add custom c
 ```cs
 ExtraConfig config = new ExtraConfig
 {
-	cameraRig = customCameraRig,
-	onComplete = npc => Debug.Log("Dialog finished!"),
-	onCreated = npc => Debug.Log("NPC created!")
+  cameraRig = customCameraRig,
+  onComplete = npc => Debug.Log("Dialog finished!"),
+  onCreated = npc => Debug.Log("NPC created!")
 };
 NPC npc = new NPC(character, markerPoint, "CustomInteraction", config);
 ```
@@ -137,7 +137,7 @@ NPC npc = new NPC(character, markerPoint, "CustomInteraction", config);
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>FAQ</u></b>
+### **FAQ**
 
 #### **What is this for?**
 NPCLib is for modders of **Haste** who want to add interaction dialogs to their custom NPCs.</br>
@@ -158,7 +158,7 @@ Seriously, this project is hell.
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>License</u></b>
+### **License**
 
 This project is licensed under the MIT License. Do whatever you want with it, just don’t blame me if shit breaks. </br>
 But if possible, just add me to some sort of credits 😭🙏
@@ -166,7 +166,7 @@ But if possible, just add me to some sort of credits 😭🙏
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>Shoutouts</u></b>
+### **Shoutouts**
 
 Big thanks to:
 - **Steve** for bug testing, giving me pointers and keeping me sane. ily pookie.
@@ -175,7 +175,7 @@ Big thanks to:
 ---
 <!--------------------------------------------------------------------------------------->
 
-### <b><u>Final Words</u></b>
+### **Final Words**
 ```
   ___   _   _    _  _____ _____   _______     _______ ______   _______ _   _ ___ _   _  ____ 
  |_ _| | | | |  / \|_   _| ____| | ____\ \   / / ____|  _ \ \ / /_   _| | | |_ _| \ | |/ ___|
@@ -189,7 +189,7 @@ Big thanks to:
 <!--------------------------------------------------------------------------------------->
 
 </br>
-<h3><u>Anyway, here's the update journey...</u></h3></br>
+<h3>Anyway, here's the update journey...</h3></br>
 </br>
 
 ### Update 1.0.0
