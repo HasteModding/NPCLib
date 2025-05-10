@@ -43,11 +43,14 @@ public struct ExtraConfig
 	/// </summary>
 	public Action<NPC> onCreated;
 
+	public bool persistantOnComplete;
+
 	public ExtraConfig()
 	{
 		cameraRig = null!;
 		onComplete = null!;
 		onCreated = null!;
+		persistantOnComplete = default;
 	}
 }
 
@@ -74,7 +77,7 @@ public struct InterCharacter
 
 		InteractionCharacter = interactonCharacter;
 		InteractionCharacter.CharacterSprite = GetCharacterSprite();
-		InteractionCharacter.VocalBank = GetCharacterVocals(Name);
+		InteractionCharacter.VocalBank = GetCharacterVocals(Character.ToString());
 	}
 
 	/// <summary>
@@ -103,10 +106,14 @@ public struct InterCharacter
 			.GetComponent<UnityEngine.UI.Image>().sprite;
 	}
 
-	private InteractionVocalBank GetCharacterVocals(string name)
+	private InteractionVocalBank GetCharacterVocals(string characterName)
 	{
+		if (characterName == "Leader") characterName = "Ava";
+		else if (characterName.ToLower().Contains("grunt")) characterName = "Wraith"; // Think it suits them best? idk.
+		else if (characterName.ToLower().Contains("weeboh")) characterName = "Weeboh"; // Think it suits them best? idk.
+		else characterName = Character.ToString();
 		return Resources.FindObjectsOfTypeAll<InteractionVocalBank>()
-			.FirstOrDefault(v => v.name.Contains(name, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
+			.FirstOrDefault(v => v.name.Contains(characterName, StringComparison.CurrentCultureIgnoreCase)) ?? null!;
 	}
 }
 
@@ -125,6 +132,9 @@ public static class ILPatching
 		MethodInfo awakeMethod = typeof(InteractableCharacter).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance);
 		if (awakeMethod == null) throw new Exception("Couldn't find Awake method");
 
+		MethodInfo completeMethod = typeof(InteractableCharacter).GetMethod("OnComplete", BindingFlags.NonPublic | BindingFlags.Instance);
+		if (completeMethod == null) throw new Exception("Couldn't find the OnComplete method");
+
 		// Tell the original lines to fuck off and insert our own method call
 		new ILHook(awakeMethod, il =>
 		{
@@ -134,8 +144,18 @@ public static class ILPatching
 			// Move to first instruction
 			c.Goto(0);
 
+			if (!c.TryFindNext(out _, instr => instr.MatchLdstr("PATCH_MARKER:NPCLIB")))
+			{
+				c.Emit(OpCodes.Ldstr, "PATCH_MARKER:NPCLIB");
+				c.Emit(OpCodes.Pop);
+			}
+			else { UnityEngine.Debug.LogWarning("[NPCLib] InteractableCharacter awake method has already been patched. Skipping."); return; }
+
 			// Remove all instructions
 			while (c.Next != null) c.Remove();
+
+			c.Emit(OpCodes.Ldstr, "PATCH_MARKER:NPCLIB");
+			c.Emit(OpCodes.Pop); // discard the string
 
 			// Load 'this' (the InteractableCharacter instance)
 			c.Emit(OpCodes.Ldarg_0);
@@ -145,6 +165,7 @@ public static class ILPatching
 
 			// Return, end of method
 			c.Emit(OpCodes.Ret);
+			UnityEngine.Debug.LogWarning("[NPCLib] Patched Awake method");
 		});
 
 		// Insert our ReImp at the start, avoids rewriting the whole start method since we only need a check, then continue.
@@ -156,11 +177,41 @@ public static class ILPatching
 			// Move to first instruction
 			c.Goto(0);
 
+			// If the first instruction is the patch marker, we skip since it's already been patched
+			if (!c.TryFindNext(out _, instr => instr.MatchLdstr("PATCH_MARKER:NPCLIB")))
+			{
+				c.Emit(OpCodes.Ldstr, "PATCH_MARKER:NPCLIB");
+				c.Emit(OpCodes.Pop);
+			}
+			else { UnityEngine.Debug.LogWarning("[NPCLib] InteractableCharacter start method has already been patched. Skipping."); return; }
+
+			c.Emit(OpCodes.Ldstr, "PATCH_MARKER:NPCLIB");
+			c.Emit(OpCodes.Pop); // discard the string
+
 			// Load 'this' (the InteractableCharacter instance)
 			c.Emit(OpCodes.Ldarg_0);
 
 			// Call method with "this" as argument
 			c.Emit(OpCodes.Call, typeof(ILPatching).GetMethod("ReImp_Start", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance));
+			UnityEngine.Debug.LogWarning("[NPCLib] Patched Start method");
+		});
+
+		new ILHook(completeMethod, il =>
+		{
+			ILCursor c = new ILCursor(il);
+
+			// Go to the last instruction
+			c.Goto(il.Body.Instructions.Count - 1);
+
+			// Move back if last instruction is ret, or just emit before it
+			if (c.Next.OpCode != OpCodes.Ret)
+				throw new Exception("Expected method to end in a 'ret' opcode");
+
+			// Inject call to NPC.ShouldSkipOCN(this);
+			c.Emit(OpCodes.Ldarg_0);
+			c.Emit(OpCodes.Call, typeof(NPC).GetMethod("ShouldSkipOCN", BindingFlags.Public | BindingFlags.Static));
+
+			UnityEngine.Debug.LogWarning($"[NPCLib ({Assembly.GetExecutingAssembly().GetName().Name})] Patched OnComplete method");
 		});
 	}
 
@@ -221,7 +272,7 @@ public class NPC
 	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
 	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
 	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
-	public NPC(Transform character, Transform markerPoint, string interactionName, ExtraConfig exc = default)
+	public NPC(Transform? character, Transform? markerPoint, string interactionName, ExtraConfig exc = default)
 	{
 		if (character == null)
 		{ throw new ArgumentNullException(nameof(character), "Character is null."); }
@@ -235,8 +286,17 @@ public class NPC
 		if (exc.cameraRig == null)
 		{ exc.cameraRig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>(); }
 
+		if (!hasInit)
+		{
+			UnityEngine.Debug.Log($"[NPCLib]: Registering {Assembly.GetExecutingAssembly().GetName().Name}");
+			UnityEngine.Debug.Log("[NPCLib]: Initializing IL Patching");
+			ILPatching.InteractableCharacter_Patch();
+			UnityEngine.Debug.Log("[NPCLib]: Finished IL Patching");
+			hasInit = true;
+		}
+
 		// Setup the new interaction
-		interaction = new();
+		interaction = (Interaction)ScriptableObject.CreateInstance(nameof(Interaction));
 		interaction.name = interactionName;
 		interaction.factsToSet = [];
 		interaction.canBePlayedSeveralTimes = true;
@@ -265,8 +325,8 @@ public class NPC
 	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
 	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
 	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
-	public NPC(GameObject character, Transform markerPoint, string interactionName, ExtraConfig exc = default) :
-		this(character.transform, markerPoint, interactionName, exc)
+	public NPC(GameObject? character, Transform? markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character?.transform, markerPoint, interactionName, exc)
 	{ }
 
 	/// <summary>
@@ -279,8 +339,8 @@ public class NPC
 	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
 	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
 	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
-	public NPC(Transform character, GameObject markerPoint, string interactionName, ExtraConfig exc = default) :
-		this(character, markerPoint.transform, interactionName, exc)
+	public NPC(Transform? character, GameObject? markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character, markerPoint?.transform!, interactionName, exc)
 	{ }
 
 	/// <summary>
@@ -293,8 +353,8 @@ public class NPC
 	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
 	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
 	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
-	public NPC(GameObject character, GameObject markerPoint, string interactionName, ExtraConfig exc = default) :
-		this(character.transform, markerPoint.transform, interactionName, exc)
+	public NPC(GameObject? character, GameObject? markerPoint, string interactionName, ExtraConfig exc = default) :
+		this(character?.transform!, markerPoint?.transform!, interactionName, exc)
 	{ }
 
 	/// <summary>
@@ -307,12 +367,31 @@ public class NPC
 	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
 	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
 	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
-	public NPC(GameObject character, Vector3 markerOffset, string interactionName, ExtraConfig exc = default) :
-		this(character.transform, (GameObject)null!, interactionName, exc)
+	public NPC(GameObject? character, Vector3? markerOffset, string interactionName, ExtraConfig exc = default) :
+		this(character?.transform, (Transform)null!, interactionName, exc)
 	{
 		GameObject markerPoint = new GameObject("MarkerPoint");
-		markerPoint.transform.SetParent(character.transform);
-		markerPoint.transform.localPosition = markerOffset;
+		markerPoint.transform.SetParent(character!.transform);
+		markerPoint.transform.localPosition = markerOffset ?? new Vector3(0, 0, 0);
+		interactionCharacter.questionMarkTarget = markerPoint.transform;
+	}
+
+	/// <summary>
+	/// Initializes a new NPC instance by validating inputs, setting up the <seealso cref="Interaction"/>,
+	/// attaching an <seealso cref="InteractableCharacter"/> component to the character, and storing optional configuration.
+	/// </summary>
+	/// <param name="character">The character transform to attach the interaction to.</param>
+	/// <param name="markerOffset">Creates a new marker with an offset.</param>
+	/// <param name="interactionName">A unique name for the interaction.</param>
+	/// <param name="exc">Optional extra configuration for the interaction setup.</param>
+	/// <exception cref="ArgumentNullException">Thrown if character is null.</exception>
+	/// <exception cref="ArgumentException">Thrown if interactionName is null, empty, or already used.</exception>
+	public NPC(Transform? character, Vector3? markerOffset, string interactionName, ExtraConfig exc = default) :
+		this(character?.transform, (Transform)null!, interactionName, exc)
+	{
+		GameObject markerPoint = new GameObject("MarkerPoint");
+		markerPoint.transform.SetParent(character);
+		markerPoint.transform.localPosition = markerOffset ?? new Vector3(0, 0, 0);
 		interactionCharacter.questionMarkTarget = markerPoint.transform;
 	}
 
@@ -341,10 +420,22 @@ public class NPC
 	/// </summary>
 	public List<InteractionLine> lines { get; set; } = null!;
 
+	private static bool hasInit { get; set; } = false;
+
 	/// <summary>
 	/// Stores extra configuration for the NPC.
 	/// </summary>
 	private ExtraConfig _extraConfig { get; set; } = default;
+
+	public static void ShouldSkipOCN(InteractableCharacter character)
+	{
+		NPC? justRan = NPC.instances?.FirstOrDefault(npc => npc.interactionCharacter == character &&
+			npc._extraConfig.persistantOnComplete && npc.interactionCharacter.onComplete == null);
+		if (justRan != null)
+		{
+			justRan.interactionCharacter.onComplete = (justRan._extraConfig.onComplete != null ? () => { justRan._extraConfig.onComplete?.Invoke(justRan); } : null);
+		}
+	}
 
 	/// <summary>
 	/// Commits the dialog to the NPC by doing checks, <seealso cref="InterCharacter"/> creation/obtaining and dialog validation.<br/>
@@ -409,20 +500,6 @@ public class NPC
 			interactionCharacter.enabled = true;
 			_extraConfig.onCreated?.Invoke(this);
 		}
-	}
-}
-
-[Landfall.Modding.LandfallPlugin]
-public class NPCLib
-{
-	// Do IL patching right when the mod registers.
-	// This should not affect any other mods since the class only starts when player is in the Hub.
-	static NPCLib()
-	{
-		UnityEngine.Debug.Log("[NPCLib]: Initializing IL Patching");
-		ILPatching.InteractableCharacter_Patch();
-		UnityEngine.Debug.Log("[NPCLib]: Finished IL Patching");
-		UnityEngine.Debug.LogWarning("[NPCLib]: Good luck!");
 	}
 }
 

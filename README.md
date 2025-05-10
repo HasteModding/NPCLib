@@ -43,16 +43,20 @@ NPCLib is a modding tool that helps you:
 
 To install this library:
 
-1. Clone this repository into your mod directory
+1. Clone this repository into your projects directory
 2. Edit your .csproj file.
 3. Add the following in your xml:
 ```xml
 <ItemGroup>
-  <Compile Include=".\NPCLib\*.cs">
+  <Compile Include="..\NPCLib\*.cs">
     <Link>NPCLib\%(Filename)%(Extension)</Link>
   </Compile>
 </ItemGroup>
 ```
+
+> [!CAUTION]
+> To add more context, we cloned the repo into `./Projects`. </br>
+> Then in your project `./Projects/MyMod/` you edit the `.csproj` and add the xml.</br>
 
 > [!NOTE]
 > You can also directly add this library's code into your project.
@@ -169,7 +173,7 @@ But if possible, just add me to some sort of credits 😭🙏
 ### **Shoutouts**
 
 Big thanks to:
-- **Steve** for bug testing, giving me pointers and keeping me sane. ily pookie.
+- **[Steve](https://github.com/Stevelion)** for bug testing, giving me pointers and keeping me sane. ily pookie.
 - **[Hamunii](https://github.com/hamunii)** for teaching me more about VisualStudio xml shit.
 
 ---
@@ -191,6 +195,11 @@ Big thanks to:
 </br>
 <h3>Anyway, here's the update journey...</h3></br>
 </br>
+
+### Update 1.1.0
+- Added another contructor.
+- Added persistant OnComplete to the ExtraConfig. Originally the action would clear upon calling it.
+- Fixed failing to get the correct vocal bank.
 
 ### Update 1.0.0
 - Official release! 🥳🥳🥳
