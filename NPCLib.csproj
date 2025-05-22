@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 
@@ -32,27 +32,13 @@
 
 		<!-- Tells the compiler not to generate any debugging information (i.e., no .pdb files). -->
 		<DebugType>none</DebugType>
-
-		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);1591</NoWarn>
 		
 	</PropertyGroup>
 
 	<ItemGroup>
-
-		<!-- Adds all the managed dlls cause lazy -->
 		<Reference Include="$(HasteDir)\Haste_Data\Managed\*.dll" Private="false" Publicize="true" />
-
-		<!-- Adds the harmonyX dll from workshop folder -->
-		<Reference Include="$(HasteDir)\..\..\workshop\content\1796470\3408901301\0Harmony.dll" Private="false" />
 	</ItemGroup>
-
-	<!-- Just builds directly into the 0Harmony path for quicker testing -->
-	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-
-		<!-- idk why vs wants to fuck the text but it looks like this normally;
-		xcopy "$(TargetDir)$(TargetFileName)" "C:\Program Files (x86)\Steam\steamapps\workshop\content\1796470\3408901301" /Y -->
-		<Exec Command="xcopy &quot;$(TargetDir)$(TargetFileName)&quot; &quot;$(HasteDir)\..\..\workshop\content\1796470\3408901301\&quot; /Y&#xD;&#xA;" />
-	</Target>
 </Project>

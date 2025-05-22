@@ -1,29 +1,32 @@
-﻿using Landfall.Haste;
+using Landfall.Haste;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
+using pworld.Scripts.Extensions;
 using System.Reflection;
 using UnityEngine;
 using Zorro.Core;
-using static Landfall.Haste.ReactionUI;
 
+/// <summary>
+/// All supported dialog characters for the NPC system.
+/// </summary>
 public enum Characters
 {
 	Captain,
 	Courier,
-	Keeper,
-	Leader,
-	Sage,
-	Heir,
-	Researcher,
 	Dalil,
-	Wraith,
 	Grunt,
 	Grunt2,
 	Grunt3,
+	Heir,
+	Keeper,
+	Leader,
+	Researcher,
+	Sage,
 	Weeboh,
 	Weeboh2,
 	Weeboh3,
+	Wraith,
 }
 
 public struct ExtraConfig
@@ -31,29 +34,39 @@ public struct ExtraConfig
 	/// <summary>
 	/// Set's a custom camera rig for the NPC.
 	/// </summary>
-	public InteractionCameraRig cameraRig;
+	public InteractionCameraRig CameraRig;
 
 	/// <summary>
 	/// Invoke action when the NPC dialog is finished
 	/// </summary>
-	public Action<NPC> onComplete;
+	public Action<NPC> OnComplete;
 
 	/// <summary>
 	/// Invoke action when the NPC is created.
 	/// </summary>
-	public Action<NPC> onCreated;
+	public Action<NPC> OnCreated;
 
-	public bool persistantOnComplete;
+	/// <summary>
+	/// Set's the NPC OnComplete action to be persistant after the dialog is finished.
+	/// </summary>
+	public bool PersistantOnComplete;
 
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ExtraConfig"/> struct with default values.
+	/// </summary>
 	public ExtraConfig()
 	{
-		cameraRig = null!;
-		onComplete = null!;
-		onCreated = null!;
-		persistantOnComplete = default;
+		CameraRig = null!;
+		OnComplete = null!;
+		OnCreated = null!;
+		PersistantOnComplete = false;
 	}
 }
 
+/// <summary>
+/// Represents a dialog character with associated data such as name, interaction character, and vocal bank.
+/// Used for dialog interactions in the NPC system.
+/// </summary>
 public struct InterCharacter
 {
 	internal InterCharacter(Characters character, InteractionCharacter interactonCharacter)
@@ -100,12 +113,18 @@ public struct InterCharacter
 	/// </summary>
 	public InteractionVocalBank VocalBank { get; set; } = null!;
 
+	/// <summary>
+	/// Gets the sprite for the current character from the UI hierarchy.
+	/// </summary>
 	private Sprite GetCharacterSprite()
 	{
 		return GameObject.Find($"GAME/Handlers/InteractionHandler/InteractionUI/Canvas/Characters/{Character.ToString()}/Image")
 			.GetComponent<UnityEngine.UI.Image>().sprite;
 	}
 
+	/// <summary>
+	/// Gets the <see cref="InteractionVocalBank"/> for the specified character name.
+	/// </summary>
 	private InteractionVocalBank GetCharacterVocals(string characterName)
 	{
 		if (characterName == "Leader") characterName = "Ava";
@@ -215,6 +234,11 @@ public static class ILPatching
 		});
 	}
 
+	/// <summary>
+	/// Replacement implementation for the <c>Awake</c> method of <see cref="InteractableCharacter"/>.
+	/// Sets up the state machine and registers default states if the instance is valid.
+	/// </summary>
+	/// <param name="instance">The <see cref="InteractableCharacter"/> instance to initialize.</param>
 	public static void ReImp_Awake(InteractableCharacter instance)
 	{
 		// This is because the default npc's have their shit setup in the unity hierarchy
@@ -229,6 +253,11 @@ public static class ILPatching
 		instance.State.SwitchState<InteractableCharacter.NoneState>(false);
 	}
 
+	/// <summary>
+	/// Replacement implementation for the <c>Start</c> method of <see cref="InteractableCharacter"/>.
+	/// Invokes <see cref="ReImp_Awake"/> if the state machine is not already initialized.
+	/// </summary>
+	/// <param name="instance">The <see cref="InteractableCharacter"/> instance to initialize.</param>
 	public static void ReImp_Start(InteractableCharacter instance) => ReImp_Awake(instance.State == null ? instance : null!);
 }
 
@@ -240,13 +269,17 @@ public class DialogBuilder : List<DialogEntry>, IDisposable
 {
 	private readonly NPC _npc;
 
+	/// <summary>
+	/// Initializes a new <see cref="DialogBuilder"/> for the specified NPC.
+	/// </summary>
+	/// <param name="npc">The NPC to associate with this dialog builder.</param>
 	public DialogBuilder(NPC npc) => _npc = npc;
 
 	/// <summary>
-	/// Adds a new dialog entry to the list.
+	/// Adds a new dialog entry for the specified character and line.
 	/// </summary>
-	/// <param name="c"></param>
-	/// <param name="l"></param>
+	/// <param name="c">The character speaking the line.</param>
+	/// <param name="l">The dialog line text.</param>
 	public void Add(Characters c, string l) => Add(new DialogEntry(c, l));
 
 	/// <summary>
@@ -280,11 +313,8 @@ public class NPC
 		if (string.IsNullOrEmpty(interactionName))
 		{ throw new ArgumentException("Interaction name is null or empty.", nameof(interactionName)); }
 
-		if (instances.Any(i => i.interaction.name == interactionName))
-		{ throw new ArgumentException($"Interaction name '{interactionName}' already exists.", nameof(interactionName)); }
-
-		if (exc.cameraRig == null)
-		{ exc.cameraRig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>(); }
+		if (exc.CameraRig == null)
+		{ exc.CameraRig = GameObject.Find("Hub_Characters/CaptainCameraRig").GetComponent<InteractionCameraRig>(); }
 
 		if (!hasInit)
 		{
@@ -295,20 +325,28 @@ public class NPC
 			hasInit = true;
 		}
 
-		// Setup the new interaction
-		interaction = (Interaction)ScriptableObject.CreateInstance(nameof(Interaction));
-		interaction.name = interactionName;
-		interaction.factsToSet = [];
-		interaction.canBePlayedSeveralTimes = true;
+		// Try to find an existing instance by interactionName.
+		interaction = instances.Select(i => i.interaction).FirstOrDefault(i => i.name == interactionName);
+
+		// If it doesn't exist, then we create a new one
+		if (interaction == null)
+		{
+			// Setup the new interaction
+			interaction = (Interaction)ScriptableObject.CreateInstance(nameof(Interaction));
+			interaction.name = interactionName;
+			interaction.factsToSet = [];
+			interaction.canBePlayedSeveralTimes = true;
+		}
+		else { UnityEngine.Debug.LogWarning($"[NPCLib ({Assembly.GetExecutingAssembly().GetName().Name})]: Interaction name '{interactionName}' already exists. Using existing."); }
 
 		// Create a new InteractableCharacter component and add it to the Character gameobject.
 		// Additionally we turn it off straight away so the Start() method does not execute.
-		(interactionCharacter = character.gameObject.AddComponent<InteractableCharacter>()).enabled = false;
+		(interactionCharacter = character.gameObject.GetOrAddComponent<InteractableCharacter>()).enabled = false;
 		interactionCharacter.questionMarkTarget = markerPoint;
 		interactionCharacter.interactionCenter = character;
 		interactionCharacter.unlockInteraction = interaction;
-		interactionCharacter.cameraRig = exc.cameraRig;
-		interactionCharacter.onComplete = (exc.onComplete != null ? () => { exc.onComplete?.Invoke(this); } : null);
+		interactionCharacter.cameraRig = exc.CameraRig;
+		interactionCharacter.onComplete = (exc.OnComplete != null ? () => { exc.OnComplete?.Invoke(this); } : null);
 
 		_extraConfig = exc;
 		characters = new();
@@ -420,21 +458,25 @@ public class NPC
 	/// </summary>
 	public List<InteractionLine> lines { get; set; } = null!;
 
+	/// <summary>
+	/// Indicates whether the NPC system has been initialized and IL patches applied.
+	/// </summary>
 	private static bool hasInit { get; set; } = false;
 
 	/// <summary>
-	/// Stores extra configuration for the NPC.
+	/// Stores the extra configuration options for this NPC instance.
 	/// </summary>
 	private ExtraConfig _extraConfig { get; set; } = default;
 
+	/// <summary>
+	/// Ensures the OnComplete action is set for NPCs with persistent completion logic after dialog finishes.
+	/// </summary>
+	/// <param name="character">The <see cref="InteractableCharacter"/> to check and update.</param>
 	public static void ShouldSkipOCN(InteractableCharacter character)
 	{
-		NPC? justRan = NPC.instances?.FirstOrDefault(npc => npc.interactionCharacter == character &&
-			npc._extraConfig.persistantOnComplete && npc.interactionCharacter.onComplete == null);
+		NPC? justRan = NPC.instances?.FirstOrDefault(npc => npc.interactionCharacter == character && npc._extraConfig.PersistantOnComplete && npc.interactionCharacter.onComplete == null);
 		if (justRan != null)
-		{
-			justRan.interactionCharacter.onComplete = (justRan._extraConfig.onComplete != null ? () => { justRan._extraConfig.onComplete?.Invoke(justRan); } : null);
-		}
+		{ justRan.interactionCharacter.onComplete = (justRan._extraConfig.OnComplete != null ? () => { justRan._extraConfig.OnComplete?.Invoke(justRan); } : null); }
 	}
 
 	/// <summary>
@@ -475,7 +517,7 @@ public class NPC
 			// If the character does not exist, we create a new one
 			if (character.InteractionCharacter == null || string.IsNullOrEmpty(character.Name))
 			{
-				InteractionCharacter intactChar = new();
+				InteractionCharacter intactChar = ScriptableObject.CreateInstance<InteractionCharacter>();
 				characters.Add(new(dialog.character, intactChar));
 				character = characters.Last();
 
@@ -498,9 +540,14 @@ public class NPC
 		if (!interactionCharacter.enabled)
 		{
 			interactionCharacter.enabled = true;
-			_extraConfig.onCreated?.Invoke(this);
+			_extraConfig.OnCreated?.Invoke(this);
 		}
 	}
 }
 
+/// <summary>
+/// Represents a single dialog line entry, associating a character with a line of dialog.
+/// </summary>
+/// <param name="character">The character speaking the line.</param>
+/// <param name="line">The dialog line text.</param>
 public record DialogEntry(Characters character, string line);
