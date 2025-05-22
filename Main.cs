@@ -1,4 +1,4 @@
-﻿using Landfall.Haste;
+using Landfall.Haste;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
