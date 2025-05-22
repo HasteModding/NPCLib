@@ -1,113 +1,108 @@
-### **NPCLib**
+# NPCLib
+
+### 🧠 What it does
+
+- Adds dialogue support to your custom NPCs
+- Handles sprite setup, camera rigs, and vocal banks
+- IL-patches Haste’s `InteractableCharacter` to make custom NPCs just work
 
 > [!CAUTION]
-> This library isn't fully tested and/or working. Expect things to break.
-> Contact `ignoredsoul` on Discord for more information.
-
-NPCLib is a library that helps with adding interaction dialogues to your custom NPCs.  
-
-This library contains all the resources you need to make your NPCs come to life, 
-whether you're making a witty sage, a quirky merchant, or just a grunt who says "ugh."
+> **This library isn't fully tested**  
+> Things may break. You’ve been warned.  
+> Ping `ignoredsoul` on Discord if it all goes sideways.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### **What does NPCLib do?**
+### ⚙️ Features
 
-NPCLib is a modding tool that helps you:
-- Give your custom NPCs interaction dialogs.
-- Handle NPC interactions, behaviors, character sprites, vocal banks, and dialogue sequences with ease.
-- Patch Haste's `InteractableCharacter` class to make it work with your custom NPCs.
+- **💬 Dialog System**  
+  Use `DialogBuilder` to set up conversations effortlessly.
 
----
-<!--------------------------------------------------------------------------------------->
+- **🧍 Custom Characters**  
+  Define your NPCs using the `Characters` enum. NPCLib handles vocal banks and sprites.
 
-### **Features**
+- **🎥 Interaction Camera**  
+  Use `InteractionCameraRig` to create cinematic closeups or cursed fisheye shots.
 
-- **Dialog System**:  
-  Use the `DialogBuilder` to create and oversee dialog sequences with an easy-to-use syntax.
-
-- **Custom Characters**:  
-  Define your NPCs using the `Characters` enum, and then let NPCLib take care of the rest, including vocal banks and sprites.
-
-- **Interaction System**:  
-  With a few lines of code, you can give your NPCs unique camera setups using the `InteractionCameraRig` class.
-
-- **IL Patching**:  
-  NPCLib patches the `InteractableCharacter` class, allowing you to concentrate on your mod without worrying about breaking anything.
+- **🛠️ IL Patching**  
+  Seamlessly integrates with `InteractableCharacter`. No boilerplate needed.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### **Installation**
+### 📦 Installation
 
-To install this library:
+1. Clone the repo into your projects directory (e.g., `./Projects/NPCLib`)
+2. Edit your `.csproj` and add:
 
-1. Clone this repository into your mod directory
-2. Edit your .csproj file.
-3. Add the following in your xml:
 ```xml
 <ItemGroup>
-  <Compile Include=".\NPCLib\*.cs">
+  <Compile Include="..\NPCLib\*.cs">
     <Link>NPCLib\%(Filename)%(Extension)</Link>
   </Compile>
 </ItemGroup>
 ```
 
+> [!CAUTION]
+> To add more context, we cloned the repo into `./Projects`.  
+> Then in your project `./Projects/MyMod/` you edit the `.csproj` and add the xml.  
+
 > [!NOTE]
-> You can also directly add this library's code into your project.
+> You can also copy the files directly into your own project if you hate XML.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
 ### **How to use NPCLib in your project**
+<details> <summary>👤 Step 1: Create an NPC</summary>
 
-#### Step 1: Create an NPC
-
+**Option A – Use a Marker Point**
 You can either create an `MarkerPoint` `GameObject` on your model for the marker to position itself
 ```cs
 GameObject character = GameObject.Instantiate(MyCustomNPC);
 Transform markerPoint = character.transform.Find("MarkerPoint");
 NPC npc = new NPC(character, markerPoint, "MyUniqueInteractionName");
 ```
-Or create an offset from the models center position. In this case, 5 units above the model.
+**Option B – Use an offset from the center**
 ```cs
 GameObject character = GameObject.Instantiate(MyCustomNPC);
 NPC npc = new NPC(character, new Vector3(0, 5, 0), "MyUniqueInteractionName");
 ```
 
----
-<!--------------------------------------------------------------------------------------->
+</details> <details> <summary>💬 Step 2: Add Dialogue</summary>
 
-#### Step 2: Add Dialog
+*Multiple syntax options are supported. Choose what you like:*
 
-There are multiple ways of creating dialog for your NPC.
+**Builder with object initializer**
 ```cs
-NPC npc = ...; // Your NPC instance
 using (new DialogBuilder(npc)
 {
   { Characters.Captain, "Hello." },
   { Characters.Courier, "Hi!" },
 }) { }
 ```
+
+**Builder with chained Add**
 ```cs
-NPC npc = ...; // Your NPC instance
 using (DialogBuilder builder = new DialogBuilder(npc))
 {
-  builder.Add(Characters.Captain, "Welcome to the ship!");
-  builder.Add(Characters.Courier, "I have a message for you.");
+  builder.Add(Characters.Captain, "Hello.");
+  builder.Add(Characters.Courier, "Hi!");
 }
 ```
+
+**Pre-built and committed**
 ```cs
-NPC npc = ...; // Your NPC instance
 DialogBuilder dialog = new DialogBuilder(npc);
 dialog.Add(Characters.Captain, "Hello.");
 dialog.Add(Characters.Courier, "Hi!");
 npc.CommitDialog(dialog);
 ```
+
+**From list**
 ```cs
-NPC npc = ...; // Your NPC instance
-List<DialogEntry> dialog = new List<DialogEntry>()
+List<DialogEntry> dialog = new()
 {
   new(Characters.Captain, "Hello."),
   new(Characters.Courier, "Hi!")
@@ -115,61 +110,57 @@ List<DialogEntry> dialog = new List<DialogEntry>()
 npc.CommitDialog(dialog);
 ```
 
-> [!TIP]
-> You can choose whichever approach works the best for you and your needs.
+</details> <details> <summary>🛠️ Step 3: Customize Behavior (Optional)</summary>
 
----
-<!--------------------------------------------------------------------------------------->
-
-#### Step 3: Customize Behavior (Optional)
-
-Want to tweak how your NPC behaves? Use the `ExtraConfig` struct to add custom camera rigs or actions:
 ```cs
 ExtraConfig config = new ExtraConfig
 {
-  cameraRig = customCameraRig,
-  onComplete = npc => Debug.Log("Dialog finished!"),
-  onCreated = npc => Debug.Log("NPC created!")
+  CameraRig = customCameraRig,
+  OnCreated = npc => Debug.Log("NPC spawned!"),
+  OnComplete = npc => Debug.Log("Dialog done."),
+  PersistantOnComplete = true
 };
-NPC npc = new NPC(character, markerPoint, "CustomInteraction", config);
+NPC npc = new NPC(character, markerPoint, "InteractionID", config);
 ```
+</details>
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### **FAQ**
+### ❓ FAQ
 
-#### **What is this for?**
-NPCLib is for modders of **Haste** who want to add interaction dialogs to their custom NPCs.</br>
-If you're making a mod with NPCs, this is for you... Seriously just use this rather than messing around yourself 😭
+#### > What’s this for?
+For modders making custom NPCs in Haste. It saves you from reinventing the ***FUCKING CURSED*** dialog system.
 
-#### **Does it work with other mods?**
-Most likely. This may cause issues with other similar libraries, but there are none for now.
+#### > Does it play nice with other mods?
+Should work fine. May conflict with similar libraries if ones ever get made lol.
 
-#### **What if I break something?**
-No worries! Open an issue or tell me in the [Haste Modding Community](https://discord.gg/hastebrokenworlds) server.
-
-
-### **Contributing**
-
-Got ideas? Found a bug? Want to add something cool? Fork the repo, make your changes, and send a pull request. Contributions are always welcome! </br>
-Seriously, this project is hell.
+#### > What if I break something?
+Open an issue or scream in the [Haste Modding Community](https://discord.gg/hastebrokenworlds).
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### **License**
+### 🤝 Contributing
 
-This project is licensed under the MIT License. Do whatever you want with it, just don’t blame me if shit breaks. </br>
-But if possible, just add me to some sort of credits 😭🙏
+Bug fixes, ideas, improvements—anything helps. Fork it, fix it, PR it.  
+No guarantee I'll merge it, but I’ll suffer less because of you.
 
 ---
 <!--------------------------------------------------------------------------------------->
 
-### **Shoutouts**
+### 📜 License
+
+MIT. Do what you want. Just don’t blame me when it explodes.  
+Credit’s nice. Not required. 🙏😭
+
+---
+<!--------------------------------------------------------------------------------------->
+
+### Shoutouts
 
 Big thanks to:
-- **Steve** for bug testing, giving me pointers and keeping me sane. ily pookie.
+- **[Steve](https://github.com/Stevelion)** for bug testing, giving me pointers and keeping me sane. ily pookie.
 - **[Hamunii](https://github.com/hamunii)** for teaching me more about VisualStudio xml shit.
 
 ---
@@ -182,7 +173,6 @@ Big thanks to:
   | |  | |_| | / _ \ | | |  _|   |  _|  \ \ / /|  _| | |_) \ V /  | | | |_| || ||  \| | |  _ 
   | |  |  _  |/ ___ \| | | |___  | |___  \ V / | |___|  _ < | |   | | |  _  || || |\  | |_| |
  |___| |_| |_/_/   \_\_| |_____| |_____|  \_/  |_____|_| \_\|_|   |_| |_| |_|___|_| \_|\____|
-                                                                                             
 ```
 
 ---
@@ -191,6 +181,15 @@ Big thanks to:
 </br>
 <h3>Anyway, here's the update journey...</h3></br>
 </br>
+
+### Update 1.2.0
+- Redid a some of the README to fit my style ig idk anymore I'm slow.
+- General clean up.
+
+### Update 1.1.0
+- Added another contructor.
+- Added persistant OnComplete to the ExtraConfig. Originally the action would clear upon calling it.
+- Fixed failing to get the correct vocal bank.
 
 ### Update 1.0.0
 - Official release! 🥳🥳🥳
